@@ -13,10 +13,10 @@
 // }
 "use client"
 import React from "react";
-import WelcomeBanner from "./Workspace/_components/WelcomeBanner";
-import CourseList from "./Workspace/_components/CourseList";
-import AddNewCourseDialog from "./Workspace/_components/AddNewCourseDialogue";
-import EnrollCourseList from "./Workspace/_components/EnrollCourseList";
+import WelcomeBanner from "./workspace/_components/WelcomeBanner";
+import CourseList from "./workspace/_components/CourseList";
+import AddNewCourseDialog from "./workspace/_components/AddNewCourseDialogue";
+import EnrollCourseList from "./workspace/_components/EnrollCourseList";
 import AppHeader from "./workspace/_components/AppHeader";
 import AppSidebar from "./workspace/_components/AppSidebar";
 import WorkspaceProvider from "./workspace/provider";
