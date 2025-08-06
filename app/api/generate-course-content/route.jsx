@@ -68,7 +68,8 @@ import { eq } from "drizzle-orm"
 
 const PROMPT = `
 Generate HTML content for each topic based on the chapter name and topic.
-Return strictly valid JSON in the following format:
+Return strictly valid JSON only. Do not wrap it in markdown code blocks or backticks.
+:
 {
   "chapterName": "Chapter Title",
   "topics": [
@@ -89,7 +90,7 @@ export async function POST(req) {
         const config = {
             responseMimeType: 'text/plain',
         };
-        const model = 'gemini-2.0-flash';
+        const model = 'gemini-1.5-flash';
         const contents = [
             {
                 role: 'user',
@@ -101,26 +102,60 @@ export async function POST(req) {
             },
         ];
 
-        const response = await ai.models.generateContent({
-            model,
-            config,
-            contents,
-        });
+        const generateContentWithRetry = async (model, config, contents, retries = 3) => {
+            for (let attempt = 0; attempt < retries; attempt++) {
+                try {
+                    return await ai.models.generateContent({ model, config, contents });
+                } catch (err) {
+                    if (err?.error?.code === 503 && attempt < retries - 1) {
+                        console.warn(`⚠️ Gemini is overloaded. Retrying... (${attempt + 1})`);
+                        await new Promise(res => setTimeout(res, 2000)); // wait 2 seconds
+                    } else {
+                        console.error("❌ Gemini API failed:", err.message);
+                        throw err;
+                    }
+                }
+            }
+        };
+        
+        const response = await generateContentWithRetry(model, config, contents);
+
+
+        // const response = await ai.models.generateContent({
+        //     model,
+        //     config,
+        //     contents,
+        // });
 
         const RawResp = response?.candidates[0]?.content?.parts[0]?.text || '';
         let JSONResp;
 
-        try {
-            const RawJson = RawResp
-                .replace(/```json\s*/i, '')
-                .replace(/```$/, '')
-                .trim();
-            JSONResp = JSON.parse(RawJson);
-        } catch (err) {
-            console.error("❌ JSON parsing failed:", err.message);
-            console.log("❓ AI Output:", RawResp);
-            throw new Error("AI response was not valid JSON.");
-        }
+        // try {
+        //     const RawJson = RawResp
+        //         .replace(/```json\s*/i, '')
+        //         .replace(/```$/, '')
+        //         .trim();
+        //     JSONResp = JSON.parse(RawJson);
+        // } catch (err) {
+        //     console.error("❌ JSON parsing failed:", err.message);
+        //     console.log("❓ AI Output:", RawResp);
+        //     throw new Error("AI response was not valid JSON.");
+        // }
+
+try {
+  const RawJson = RawResp
+    .replace(/^\s*```json\s*/i, '')   // remove ```json if present
+    .replace(/^\s*```\s*/i, '')       // remove ``` if just triple backtick
+    .replace(/```\s*$/i, '')          // remove ending ```
+    .trim();
+
+  JSONResp = JSON.parse(RawJson);
+} catch (err) {
+  console.error("❌ JSON parsing failed:", err.message);
+  console.log("❓ AI Output:", RawResp);
+  throw new Error("AI response was not valid JSON.");
+}
+
 
 
         // Get Yutube Video
